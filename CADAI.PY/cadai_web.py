@@ -12,29 +12,25 @@ if "last_roller_weight" not in st.session_state: st.session_state.last_roller_we
 if "qty_type" not in st.session_state: st.session_state.qty_type="Single Roller"
 if "qty_value" not in st.session_state: st.session_state.qty_value=1
 
-# ================== AUTO HISTORY TRACKER ==================
+# ================== SIMPLE BACK SYSTEM ==================
+
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Track stage changes automatically
-_prev_stage = st.session_state.get("_prev_stage")
+# Detect stage change automatically
+if "last_stage" not in st.session_state:
+    st.session_state.last_stage = st.session_state.stage
 
-if _prev_stage != st.session_state.stage:
-    if _prev_stage:
-        st.session_state.history.append(_prev_stage)
-    st.session_state["_prev_stage"] = st.session_state.stage
+if st.session_state.last_stage != st.session_state.stage:
+    st.session_state.history.append(st.session_state.last_stage)
+    st.session_state.last_stage = st.session_state.stage
 
 
-def top_back_arrow():
+def back():
     if st.session_state.history:
         st.session_state.stage = st.session_state.history.pop()
+        st.session_state.last_stage = st.session_state.stage
         st.rerun()
-
-
-def top_back_arrow():
-    left, _ = st.columns([0.08, 0.92])
-    with left:
-        st.button("⬅️", key=f"back_{st.session_state.stage}", on_click=go_back)
 
 # ================== CONSTANTS ==================
 DEFAULT_CONSTANTS = {
