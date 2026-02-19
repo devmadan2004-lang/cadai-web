@@ -9,6 +9,9 @@ if "frame_costings" not in st.session_state: st.session_state.frame_costings=[]
 if "constants" not in st.session_state: st.session_state.constants={}
 if "selected_roller" not in st.session_state: st.session_state.selected_roller=None
 if "last_roller_weight" not in st.session_state: st.session_state.last_roller_weight=0
+if "qty_type" not in st.session_state: st.session_state.qty_type="Single Roller"
+if "qty_value" not in st.session_state: st.session_state.qty_value=1
+
 
 # ================== CONSTANTS ==================
 DEFAULT_CONSTANTS = {
@@ -18,65 +21,54 @@ DEFAULT_CONSTANTS = {
     "WELDING_COST": 80.0,
     "MARKUP": 1.25,
     "FRAME_RATE": 100.0,
-    # keep keys available even if you don't use now
     "GUIDE_ROLLER": 0.0,
     "PIVOT_BEARING": 0.0,
 }
 
+
 # ================== HELPERS ==================
-def make_df(rows):
-    if rows is None or len(rows) == 0:
-        # return empty df with base columns so editor & sums don't crash
-        return pd.DataFrame(columns=["DESCRIPTION","SECTION","SIZE","WT/M","LENGTH (M)","QTY","TOTAL WT"])
+def make_df(rows=None):
 
-    max_len = max(len(r) for r in rows)
+    cols = ["DESCRIPTION","SECTION","SIZE","WT/M","LENGTH","QTY","TOTAL WT"]
 
-    base_cols = ["DESCRIPTION","SECTION","SIZE","WT/M","LENGTH (M)","QTY","TOTAL WT"]
+    if not rows:
+        return pd.DataFrame(columns=cols)
 
-    if max_len > len(base_cols):
-        extra = [f"EXTRA_{i}" for i in range(max_len - len(base_cols))]
-        cols = base_cols + extra
-    else:
-        cols = base_cols[:max_len]
+    return pd.DataFrame(rows, columns=cols)
 
-    fixed_rows = []
-    for r in rows:
-        if len(r) < max_len:
-            r = r + [None] * (max_len - len(r))
-        fixed_rows.append(r)
-
-    return pd.DataFrame(fixed_rows, columns=cols)
 
 def safe_get(table, key, label):
+
     if key not in table:
-        st.error(f"{label} not available for belt width {key} mm")
+        st.error(f"{label} not available for {key} mm")
         st.stop()
+
     return table[key]
 
+
 # ================== FRAME WEIGHT TABLES ==================
-CARRYING_FRAME_WT = {650:12.7,800:16.8,1000:23.1,1200:26.2,1400:35.0,1600:38.4,1800:52.4,2000:64.7}
+CARRYING_FRAME_WT = {650:12.7,800:16.8,1000:23.1,1200:26.2,1400:35,1600:38.4,1800:52.4,2000:64.7}
 SARI_FRAME_WT     = {650:14.2,800:18.1,1000:24.5,1200:28.9,1400:37.4,1600:41.8,1800:56.2,2000:68.9}
 SARI_N_FRAME_WT   = {800:19.3,1000:26.1,1200:30.2}
 SACI_FRAME_WT     = {650:13.5,800:17.2,1000:22.9,1200:27.4,1400:36.2,1600:40.5,1800:54.3,2000:66.1}
 
-# ================== ROLLER WT → FRAME BW MAP ==================
+
+# ================== ROLLER WT → BW ==================
 ROLLER_WT_TO_BW = [
-    (0, 15, 650),
-    (15, 22, 800),
-    (22, 30, 1000),
-    (30, 38, 1200),
-    (38, 48, 1400),
-    (48, 60, 1600),
-    (60, 75, 1800),
-    (75, 1000, 2000),
+    (0,15,650),(15,22,800),(22,30,1000),(30,38,1200),
+    (38,48,1400),(48,60,1600),(60,75,1800),(75,1000,2000)
 ]
 
-def get_frame_bw_from_roller_wt(roller_wt):
-    for low, high, bw in ROLLER_WT_TO_BW:
-        if low <= roller_wt < high:
+def get_bw(wt):
+
+    for low,high,bw in ROLLER_WT_TO_BW:
+        if low<=wt<high:
             return bw
+
     return 1000
 
+
+# ================== FABRICATION TABLES ==================
 # ================== FABRICATION TABLES ==================
 # NOTE: Keep your dict names consistent:
 # - SACI_FAB (not SACI)
@@ -315,237 +307,326 @@ SARI_N_FAB = {
     ]),
 }
 
-# ================== UI ==================
-st.title("COSTY 🚧")
 
-st.markdown(
-    "<h6 style='color:blue;'>By SIMPLICITY</h6>",
-    unsafe_allow_html=True
-)
-# ---------------- SELECT ----------------
+
+# ================== UI ==================
+st.title("COST 🚧")
+st.markdown("<h6 style='color:blue;'>By SIMPLICITY</h6>", unsafe_allow_html=True)
+
+
+# ================== SELECT ==================
 if st.session_state.stage=="select_roller":
 
-    main_roller = st.selectbox("Roller Type",[
+    main = st.selectbox("Roller Type",[
         "Select Roller",
         "Carrying Idler Without Frame",
         "Impact Idler Without Frame",
         "Carrying Idler With Frame",
         "SARI",
-        "SACI",
-        "Belt Conveyor"
+        "SACI"
     ])
 
-    roller = main_roller
+    roller = main
 
-    if main_roller == "SARI":
-        sari_type = st.radio("Select SARI Type",["SARI","SARI (N-6012)"],horizontal=True)
-        roller = sari_type
+    if main=="SARI":
+        roller = st.radio("SARI Type",["SARI","SARI (N-6012)"],horizontal=True)
 
     if st.button("Proceed"):
+
         if roller=="Select Roller":
             st.warning("Select roller")
-        elif roller=="Belt Conveyor":
-            st.error("Module under construction")
         else:
-            st.session_state.selected_roller = roller
+            st.session_state.selected_roller=roller
             st.session_state.stage="ask_constants"
             st.rerun()
 
-# ---------------- CONSTANTS ASK ----------------
+
+# ================== CONSTANT ASK ==================
 if st.session_state.stage=="ask_constants":
-    st.subheader("Change Fixed Constants?")
+
+    st.subheader("Change Constants?")
+
     c1,c2=st.columns(2)
+
     if c1.button("YES"):
-        st.session_state.stage="constants"; st.rerun()
+        st.session_state.stage="constants"
+        st.rerun()
+
     if c2.button("NO"):
         st.session_state.constants=DEFAULT_CONSTANTS.copy()
-        st.session_state.stage="input"; st.rerun()
+        st.session_state.stage="input"
+        st.rerun()
 
-# ---------------- CONSTANTS ----------------
+
+# ================== CONSTANT EDIT ==================
 if st.session_state.stage=="constants":
+
     st.subheader("Edit Constants")
+
     c={}
     cols=st.columns(3)
+
     for i,(k,v) in enumerate(DEFAULT_CONSTANTS.items()):
         with cols[i%3]:
-            c[k]=st.number_input(k,value=float(v), min_value=0.0)
+            c[k]=st.number_input(k,value=float(v),min_value=0.0)
+
     if st.button("Save"):
         st.session_state.constants=c
         st.session_state.stage="input"
         st.rerun()
 
+
 # ---------------- INPUT ----------------
-if st.session_state.stage=="input":
+# ================== INPUT (FULL FIXED BLOCK) ==================
+# ---------------- INPUT ----------------
+if st.session_state.stage == "input":
     st.subheader(f"Roller: {st.session_state.selected_roller}")
 
-    pipe_dia=st.number_input("PIPE DIAMETER", value=89.0, min_value=0.0)
-    face_width=st.number_input("FACE WIDTH", value=190.0, min_value=0.0)
-    shaft_dia=st.number_input("SHAFT DIA", value=25.0, min_value=0.0)
-    shaft_len=st.number_input("SHAFT LENGTH", value=220.0, min_value=0.0)
-    pipe_thk=st.number_input("PIPE THK", value=3.2, min_value=0.0)
-    qty=st.number_input("QTY", value=1, min_value=1, step=1)
+    # --- Inputs ---
+    pipe_dia   = st.number_input("PIPE DIA", value=89.0, min_value=0.0, step=0.1)
+    face_width = st.number_input("FACE WIDTH", value=190.0, min_value=0.0, step=1.0)
 
-    pipe_wt=(3.14*pipe_dia*face_width*pipe_thk*7.85)/1000000
-    shaft_wt=(3.14/4)*(shaft_dia/10)**2*(shaft_len/10)*7.85/1000
-    total_wt=pipe_wt+shaft_wt
+    shaft_dia  = st.number_input("SHAFT DIA", value=25.0, min_value=0.0, step=1.0)
+    shaft_len  = st.number_input("SHAFT LENGTH", value=220.0, min_value=0.0, step=1.0)
+
+    pipe_thk   = st.number_input("PIPE THK", value=3.2, min_value=0.0, step=0.1)
+
+    qty        = st.number_input("QTY", value=1, min_value=1, step=1)
+
+    # ✅ QTY TYPE
+    qty_type = st.radio(
+        "QTY TYPE",
+        ["SINGLE ROLLER", "SET (1 Frame)"],
+        horizontal=True
+    )
+
+    # ✅ If SET: 1 set = 3 rollers
+    roller_qty = int(qty) * 3 if qty_type == "SET (1 Frame)" else int(qty)
+    st.info(f"Roller Qty Used = {roller_qty} (QTY={int(qty)} × {'3' if qty_type=='SET (1 Frame)' else '1'})")
+
+    # --- Weight ---
+    pipe_wt  = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1e6
+    shaft_wt = (3.14 / 4) * (shaft_dia / 10) ** 2 * (shaft_len / 10) * 7.85 / 1000
+    total_wt = pipe_wt + shaft_wt
 
     st.session_state.last_roller_weight = total_wt
 
-    c=st.session_state.constants
-    housing_cost=pipe_dia/2
+    # --- Costing ---
+    c = st.session_state.constants
+    housing_cost = pipe_dia / 2
 
-    total_cost=total_wt*c["STEEL_COST"]+housing_cost+c["BEARING_COST_PAIR"]+c["SEAL_COST"]+c["WELDING_COST"]+c["GUIDE_ROLLER"]+c["PIVOT_BEARING"]
-    unit_price=total_cost*c["MARKUP"]
-    total_price=unit_price*qty
+    unit_cp = (
+        total_wt * c["STEEL_COST"]
+        + housing_cost
+        + c["BEARING_COST_PAIR"]
+        + c["SEAL_COST"]
+        + c["WELDING_COST"]
+        # keep these keys but ONLY add if you really want them in roller cost:
+        + c.get("GUIDE_ROLLER", 0.0)
+        + c.get("PIVOT_BEARING", 0.0)
+    )
 
-    if st.button("Calculate Roller Cost"):
+    unit_price = unit_cp * c["MARKUP"]
+    total_price = unit_price * roller_qty   # ✅ IMPORTANT FIX (set multiplies by 3)
+
+    if st.button("Calculate Roller Cost", key="btn_calc_roller_cost"):
         st.session_state.costings.append({
-            "ROLLER":st.session_state.selected_roller,
-            "WT":round(total_wt,3),
-            "QTY":qty,
-            "UNIT_CP":round(total_cost,2),
-            "UNIT_PRICE":round(unit_price,2),
-            "TOTAL_PRICE":round(total_price,2)
+            "ROLLER": st.session_state.selected_roller,
+            "WT": round(total_wt, 3),
+
+            "QTY": int(qty),                 # user-entered
+            "QTY TYPE": qty_type,
+            "ROLLER QTY": int(roller_qty),   # ✅ computed
+
+            "UNIT_CP": round(unit_cp, 2),
+            "UNIT_PRICE": round(unit_price, 2),
+            "TOTAL_PRICE": round(total_price, 2),
         })
-        st.session_state.stage="compiled"
+        st.session_state.stage = "compiled"
         st.rerun()
 
-# ---------------- COMPILED ----------------
-if st.session_state.stage=="compiled":
+# ================== COMPILED (FULL FIXED BLOCK) ==================
+if st.session_state.stage == "compiled":
     st.subheader("Roller Costing")
-    st.dataframe(pd.DataFrame(st.session_state.costings),use_container_width=True)
+    st.dataframe(pd.DataFrame(st.session_state.costings), use_container_width=True)
 
-    roller = st.session_state.selected_roller
+    r = st.session_state.selected_roller
 
-    if roller in ["Carrying Idler Without Frame","Impact Idler Without Frame"]:
-        st.warning("Frame cost not applicable for this roller type")
+    if r in ["Carrying Idler Without Frame", "Impact Idler Without Frame"]:
+        st.warning("Frame Not Applicable")
 
-    c1,c2=st.columns(2)
-    if c1.button("Calculate Frame Cost"):
-        if roller in ["Carrying Idler Without Frame","Impact Idler Without Frame"]:
-            st.error("Frame not applicable")
+    c1, c2 = st.columns(2)
+
+    if c1.button("Frame Cost", key="btn_go_frame_cost"):
+        if r in ["Carrying Idler Without Frame", "Impact Idler Without Frame"]:
+            st.error("No Frame")
         else:
-            st.session_state.stage="frame_input"; st.rerun()
-    if c2.button("Add Another Roller"):
-        st.session_state.stage="select_roller"; st.rerun()
+            st.session_state.stage = "frame_input"
+            st.rerun()
 
-# ---------------- FRAME INPUT ----------------
-if st.session_state.stage=="frame_input":
+    if c2.button("New Roller", key="btn_new_roller_from_compiled"):
+        st.session_state.stage = "select_roller"
+        st.rerun()
+
+
+# ================== FRAME INPUT (FULL FIXED BLOCK) ==================
+# ================== ROLLER WT → FRAME BW MAP ==================
+ROLLER_WT_TO_BW = [
+    (0, 15, 650),
+    (15, 22, 800),
+    (22, 30, 1000),
+    (30, 38, 1200),
+    (38, 48, 1400),
+    (48, 60, 1600),
+    (60, 75, 1800),
+    (75, 10**9, 2000),
+]
+
+def get_frame_bw_from_roller_wt(roller_wt: float) -> int:
+    """Map roller weight (kg) to a belt width (mm)."""
+    for low, high, bw in ROLLER_WT_TO_BW:
+        if low <= roller_wt < high:
+            return bw
+    return 1000
+if st.session_state.stage == "frame_input":
+
     st.subheader("Frame Costing")
 
-    roller=st.session_state.selected_roller
-    roller_wt=st.session_state.last_roller_weight
-    c=st.session_state.constants
+    roller     = st.session_state.selected_roller
+    roller_wt  = st.session_state.last_roller_weight
+    c          = st.session_state.constants
 
+    # --- Get last roller row safely ---
+    if not st.session_state.costings:
+        st.error("No roller costing found. Go back and calculate roller first.")
+        st.stop()
+
+    last_roller = st.session_state.costings[-1]
+
+    # --- Get quantity & qty type safely ---
+    set_qty  = int(last_roller.get("QTY", 1))
+    qty_type = str(last_roller.get("QTY TYPE", "")).strip()
+
+    # ✅ FIX: Accept anything starting with SET
+    if not qty_type.upper().startswith("SET"):
+        st.error("Frame costing only applies when QTY TYPE is SET.")
+        st.stop()
+
+    # --- Auto belt width selection ---
     bw = get_frame_bw_from_roller_wt(roller_wt)
-
-    # ✅ Critical fix for SARI (N-6012): only 800/1000/1200 exist
-    if roller == "SARI (N-6012)" and bw not in SARI_N_FRAME_WT:
-        bw = min(SARI_N_FRAME_WT.keys(), key=lambda k: abs(k - bw))
 
     st.info(f"Auto Selected Frame BW = {bw} mm (from Roller WT = {round(roller_wt,2)} kg)")
 
-    # ✅ Show respective frame weight table (not WT→BW map)
-    st.subheader("Frame Weight Reference Table")
-    if roller=="Carrying Idler With Frame":
-        st.table(pd.DataFrame(list(CARRYING_FRAME_WT.items()), columns=["Belt Width (mm)", "Frame Weight (kg)"]))
-    elif roller=="SARI":
-        st.table(pd.DataFrame(list(SARI_FRAME_WT.items()), columns=["Belt Width (mm)", "Frame Weight (kg)"]))
-    elif roller=="SARI (N-6012)":
-        st.table(pd.DataFrame(list(SARI_N_FRAME_WT.items()), columns=["Belt Width (mm)", "Frame Weight (kg)"]))
-    elif roller=="SACI":
-        st.table(pd.DataFrame(list(SACI_FRAME_WT.items()), columns=["Belt Width (mm)", "Frame Weight (kg)"]))
-
-    if roller=="Carrying Idler With Frame":
+    # --- Select correct frame weight + fab table ---
+    if roller == "Carrying Idler With Frame":
         frame_wt = safe_get(CARRYING_FRAME_WT, bw, "Carrying Frame Weight")
         fab      = safe_get(CARRYING_FAB, bw, "Carrying Fabrication Table")
-    elif roller=="SARI":
+
+    elif roller == "SARI":
         frame_wt = safe_get(SARI_FRAME_WT, bw, "SARI Frame Weight")
         fab      = safe_get(SARI_FAB, bw, "SARI Fabrication Table")
-    elif roller=="SARI (N-6012)":
-        frame_wt = safe_get(SARI_N_FRAME_WT, bw, "SARI N-6012 Frame Weight")
-        fab      = safe_get(SARI_N_FAB, bw, "SARI N-6012 Fabrication Table")
-    elif roller=="SACI":
+
+    elif roller == "SARI (N-6012)":
+        if bw not in SARI_N_FRAME_WT:
+            bw = min(SARI_N_FRAME_WT.keys(), key=lambda k: abs(k-bw))
+        frame_wt = safe_get(SARI_N_FRAME_WT, bw, "SARI N Frame Weight")
+        fab      = safe_get(SARI_N_FAB, bw, "SARI N Fabrication Table")
+
+    elif roller == "SACI":
         frame_wt = safe_get(SACI_FRAME_WT, bw, "SACI Frame Weight")
         fab      = safe_get(SACI_FAB, bw, "SACI Fabrication Table")
+
     else:
+        st.error("Frame not defined for this roller.")
         st.stop()
 
+    # --- Show reference tables ---
+    st.subheader("Frame Weight Reference")
     st.success(f"Selected Frame Weight = {frame_wt} kg")
 
     st.subheader("Fabrication Table (Editable)")
-    edited=st.data_editor(fab,use_container_width=True)
+    edited = st.data_editor(fab, use_container_width=True)
 
-    total_frame_wt = edited["TOTAL WT"].sum() if ("TOTAL WT" in edited.columns and not edited.empty) else frame_wt
+    # --- Calculate frame weight from fabrication ---
+    if "TOTAL WT" in edited.columns and not edited.empty:
+        total_frame_wt = edited["TOTAL WT"].sum()
+    else:
+        total_frame_wt = frame_wt
 
-    frame_cp=total_frame_wt*c["STEEL_COST"] + c["FRAME_RATE"] + c["WELDING_COST"]
-    frame_price=frame_cp*c["MARKUP"]
+    # --- Frame costing ---
+    frame_unit_cost  = total_frame_wt*c["STEEL_COST"] + c["FRAME_RATE"] + c["WELDING_COST"]
+    frame_unit_price = frame_unit_cost * c["MARKUP"]
 
-    st.metric("Frame Weight Used",round(total_frame_wt,2))
-    st.metric("Unit Frame Cost",round(frame_cp,2))
-    st.metric("Unit Frame Price",round(frame_price,2))
+    # ✅ IMPORTANT: Frame total price = SET QTY × UNIT PRICE
+    frame_total_price = frame_unit_price * set_qty
+
+    st.metric("Frame Unit Price", round(frame_unit_price,2))
+    st.metric("Frame Total Price", round(frame_total_price,2))
 
     if st.button("Add Frame Cost"):
+
         st.session_state.frame_costings.append({
-            "ROLLER":roller,
-            "AUTO BW":bw,
-            "FRAME WT":round(total_frame_wt,2),
-            "UNIT_CP":round(frame_cp,2),
-            "UNIT_PRICE":round(frame_price,2)
+            "ROLLER": roller,
+            "BELT WIDTH": bw,
+            "FRAME UNIT PRICE": round(frame_unit_price,2),
+            "FRAME TOTAL PRICE": round(frame_total_price,2),
+            "FRAME QTY (SET)": set_qty
         })
-        st.session_state.stage="frame_compiled"; st.rerun()
+
+        st.session_state.stage = "frame_compiled"
+        st.rerun()
 
     if st.button("Back"):
-        st.session_state.stage="compiled"; st.rerun()
+        st.session_state.stage = "compiled"
+        st.rerun()
 
-# ---------------- FRAME COMPILED ----------------
-# ---------------- FRAME COMPILED ----------------
-if st.session_state.stage=="frame_compiled":
+
+# ================== FRAME COMPILED (FULL FIXED BLOCK) ==================
+if st.session_state.stage == "frame_compiled":
     st.subheader("Frame Costing Table")
     st.dataframe(pd.DataFrame(st.session_state.frame_costings), use_container_width=True)
 
-    # ✅ 1 Set Cost (Roller + Frame)
     if st.session_state.costings and st.session_state.frame_costings:
         last_roller = st.session_state.costings[-1]
         last_frame  = st.session_state.frame_costings[-1]
 
-        # Roller: use TOTAL_PRICE (already qty*unit price)
         roller_total = float(last_roller.get("TOTAL_PRICE", 0))
+        frame_total  = float(last_frame.get("FRAME TOTAL PRICE", 0))
 
-        # Frame: you said "frame total price = unit_price"
-        frame_total = float(last_frame.get("UNIT_PRICE", 0))
-
-        one_set_total = roller_total + frame_total
-
-        st.markdown("### 1 Set Cost (Roller + Frame)")
-        one_set_df = pd.DataFrame([{
+        st.markdown("### Total Cost (Roller + Frame)")
+        total_df = pd.DataFrame([{
             "ROLLER TOTAL PRICE": round(roller_total, 2),
-            "FRAME UNIT PRICE": round(frame_total, 2),
-            "1 SET TOTAL (ROLLER + FRAME)": round(one_set_total, 2)
+            "FRAME TOTAL PRICE": round(frame_total, 2),
+            "TOTAL (ROLLER + FRAME)": round(roller_total + frame_total, 2),
         }])
-        st.dataframe(one_set_df, use_container_width=True)
+        st.dataframe(total_df, use_container_width=True)
 
     st.markdown("---")
     c1, c2 = st.columns(2)
 
-    # ✅ Add UNIQUE keys to avoid Streamlit duplicate button id error
     if c1.button("Back to Roller Costing", key="btn_back_to_roller_costing_frame_compiled"):
-        st.session_state.stage="compiled"
+        st.session_state.stage = "compiled"
         st.rerun()
 
     if c2.button("Calculate New Roller", key="btn_new_roller_from_frame_compiled"):
-        st.session_state.stage="select_roller"
+        st.session_state.stage = "select_roller"
         st.rerun()
-
-# ---------------- DOWNLOAD ----------------
+# ================== DOWNLOAD ==================
 if st.session_state.costings:
-    buffer=BytesIO()
-    with pd.ExcelWriter(buffer,engine="openpyxl") as writer:
-        pd.DataFrame(st.session_state.costings).to_excel(writer,index=False,sheet_name="ROLLER")
-    st.download_button("Download Roller Excel",buffer.getvalue(),"roller_costing.xlsx")
+
+    buf=BytesIO()
+
+    with pd.ExcelWriter(buf,engine="xlsxwriter") as w:
+        pd.DataFrame(st.session_state.costings).to_excel(w,index=False)
+
+    st.download_button("Download Roller",buf.getvalue(),"roller.xlsx")
+
 
 if st.session_state.frame_costings:
-    buffer=BytesIO()
-    with pd.ExcelWriter(buffer,engine="openpyxl") as writer:
-        pd.DataFrame(st.session_state.frame_costings).to_excel(writer,index=False,sheet_name="FRAME")
-    st.download_button("Download Frame Excel",buffer.getvalue(),"frame_costing.xlsx")
+
+    buf=BytesIO()
+
+    with pd.ExcelWriter(buf,engine="xlsxwriter") as w:
+        pd.DataFrame(st.session_state.frame_costings).to_excel(w,index=False)
+
+    st.download_button("Download Frame",buf.getvalue(),"frame.xlsx")
