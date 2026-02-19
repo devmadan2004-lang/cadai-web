@@ -398,6 +398,56 @@ if st.session_state.stage=="constants":
 if st.session_state.stage=="input":
     st.subheader(f"Roller: {st.session_state.selected_roller}")
 
+    pipe_dia = st.number_input("PIPE DIAMETER", value=89.0, min_value=0.0)
+    face_width = st.number_input("FACE WIDTH", value=190.0, min_value=0.0)
+
+    # Bearing Selection → Auto Shaft Dia
+    bearing_selected = st.selectbox(
+        "Select Bearing Type",
+        list(BEARING_OPTIONS.keys())
+    )
+
+    shaft_dia = BEARING_OPTIONS[bearing_selected]
+
+    st.info(f"Auto Shaft Diameter = {shaft_dia} mm (from bearing)")
+
+    shaft_len = st.number_input("SHAFT LENGTH", value=220.0, min_value=0.0)
+    pipe_thk = st.number_input("PIPE THK", value=3.2, min_value=0.0)
+    qty = st.number_input("QTY", value=1, min_value=1, step=1)
+
+    pipe_wt = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1000000
+    shaft_wt = (3.14 / 4) * (shaft_dia / 10) ** 2 * (shaft_len / 10) * 7.85 / 1000
+    total_wt = pipe_wt + shaft_wt
+
+    st.session_state.last_roller_weight = total_wt
+
+    c = st.session_state.constants
+    housing_cost = pipe_dia / 2
+
+    total_cost = (
+        total_wt * c["STEEL_COST"]
+        + housing_cost
+        + c["BEARING_COST_PAIR"]
+        + c["SEAL_COST"]
+        + c["WELDING_COST"]
+    )
+
+    unit_price = total_cost * c["MARKUP"]
+    total_price = unit_price * qty
+
+    if st.button("Calculate Roller Cost"):
+        st.session_state.costings.append({
+            "ROLLER": st.session_state.selected_roller,
+            "WT": round(total_wt, 3),
+            "QTY": qty,
+            "UNIT_CP": round(total_cost, 2),
+            "UNIT_PRICE": round(unit_price, 2),
+            "TOTAL_PRICE": round(total_price, 2)
+        })
+
+        st.session_state.stage = "compiled"
+        st.rerun()
+
     pipe_dia=st.number_input("PIPE DIAMETER", value=89.0, min_value=0.0)
     face_width=st.number_input("FACE WIDTH", value=190.0, min_value=0.0)
    # Bearing Selection → Auto Shaft Dia
