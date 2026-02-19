@@ -22,6 +22,26 @@ DEFAULT_CONSTANTS = {
     "GUIDE_ROLLER": 0.0,
     "PIVOT_BEARING": 0.0,
 }
+# ================== BEARING STANDARDS ==================
+# Bearing Code : Inner Bore (mm)
+
+BEARING_OPTIONS = {
+    "420201 (12 mm bore)": 12,
+    "420202 (15 mm bore)": 15,
+    "420203 (17 mm bore)": 17,
+    "420204 (20 mm bore)": 20,
+    "420205 (25 mm bore)": 25,
+    "420206 (30 mm bore)": 30,
+
+    "6203 (17 mm bore)": 17,
+    "6204 (20 mm bore)": 20,
+    "6205 (25 mm bore)": 25,
+    "6206 (30 mm bore)": 30,
+
+    "6304 (20 mm bore)": 20,
+    "6305 (25 mm bore)": 25,
+    "6306 (30 mm bore)": 30,
+}
 
 # ================== HELPERS ==================
 def make_df(rows):
@@ -380,7 +400,15 @@ if st.session_state.stage=="input":
 
     pipe_dia=st.number_input("PIPE DIAMETER", value=89.0, min_value=0.0)
     face_width=st.number_input("FACE WIDTH", value=190.0, min_value=0.0)
-    shaft_dia=st.number_input("SHAFT DIA", value=25.0, min_value=0.0)
+   # Bearing Selection → Auto Shaft Dia
+bearing_selected = st.selectbox(
+    "Select Bearing Type",
+    list(BEARING_OPTIONS.keys())
+)
+
+shaft_dia = BEARING_OPTIONS[bearing_selected]
+
+st.info(f"Auto Shaft Diameter = {shaft_dia} mm (from bearing)")
     shaft_len=st.number_input("SHAFT LENGTH", value=220.0, min_value=0.0)
     pipe_thk=st.number_input("PIPE THK", value=3.2, min_value=0.0)
     qty=st.number_input("QTY", value=1, min_value=1, step=1)
