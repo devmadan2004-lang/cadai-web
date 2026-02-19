@@ -23,6 +23,7 @@ DEFAULT_CONSTANTS = {
     "FRAME_RATE": 100.0,
     "GUIDE_ROLLER": 0.0,
     "PIVOT_BEARING": 0.0,
+    "LOCKING_RING"; 0.0,
 }
 
 
@@ -524,6 +525,7 @@ if st.session_state.stage == "input":
         + c["WELDING_COST"]
         + c.get("GUIDE_ROLLER", 0.0)
         + c.get("PIVOT_BEARING", 0.0)
+        + c.get("LOCKING_RING", 0.0)
     )
 
     unit_price = unit_cp * c["MARKUP"]
