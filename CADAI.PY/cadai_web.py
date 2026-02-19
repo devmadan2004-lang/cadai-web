@@ -23,7 +23,7 @@ DEFAULT_CONSTANTS = {
     "FRAME_RATE": 100.0,
     "GUIDE_ROLLER": 0.0,
     "PIVOT_BEARING": 0.0,
-    "LOCKING_RING"; 0.0,
+    "LOCKING_RING": 0.0,
 }
 
 
