@@ -3,6 +3,23 @@ import pandas as pd
 from io import BytesIO
 
 # ================== SESSION INIT ==================
+# ----------------- NAV HISTORY (ADD ONCE) -----------------
+if "stage_history" not in st.session_state:
+    st.session_state.stage_history = []
+
+def go(stage_name: str):
+    """Go to a new stage and remember current stage."""
+    cur = st.session_state.stage
+    if not st.session_state.stage_history or st.session_state.stage_history[-1] != cur:
+        st.session_state.stage_history.append(cur)
+    st.session_state.stage = stage_name
+    st.rerun()
+
+def go_back():
+    """Go back to previous stage (if available)."""
+    if st.session_state.stage_history:
+        st.session_state.stage = st.session_state.stage_history.pop()
+        st.rerun()
 if "stage" not in st.session_state: st.session_state.stage="select_roller"
 if "costings" not in st.session_state: st.session_state.costings=[]
 if "frame_costings" not in st.session_state: st.session_state.frame_costings=[]
