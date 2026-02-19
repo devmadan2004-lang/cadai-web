@@ -25,7 +25,7 @@ if _prev_stage != st.session_state.stage:
     st.session_state["_prev_stage"] = st.session_state.stage
 
 
-def go_back():
+def top_back_arrow():
     if st.session_state.history:
         st.session_state.stage = st.session_state.history.pop()
         st.rerun()
