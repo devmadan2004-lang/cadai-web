@@ -330,7 +330,11 @@ SARI_N_FAB = {
 # ================== UI ==================
 st.title("COST 🚧")
 st.markdown("<h6 style='color:blue;'>By SIMPLICITY</h6>", unsafe_allow_html=True)
-
+# ----------------- TOP LEFT BACK ARROW (GLOBAL) -----------------
+bcol, _ = st.columns([1, 12])
+with bcol:
+    if st.button("⬅️", key=f"back_{st.session_state.stage}", disabled=(st.session_state.stage == "select_roller")):
+        go_back()
 
 # ================== SELECT ==================
 if st.session_state.stage=="select_roller":
