@@ -376,42 +376,143 @@ if st.session_state.stage=="constants":
         st.rerun()
 
 
-# ---------------- INPUT ----------------
-# ================== INPUT (FULL FIXED BLOCK) ==================
-# ---------------- INPUT ----------------
+# ================== INPUT (CLEAN + NO ERRORS) ==================
+# ================== INPUT (FIXED) ==================
 if st.session_state.stage == "input":
     st.subheader(f"Roller: {st.session_state.selected_roller}")
 
-    # --- Inputs ---
-    pipe_dia   = st.number_input("PIPE DIA", value=89.0, min_value=0.0, step=0.1)
-    face_width = st.number_input("FACE WIDTH", value=190.0, min_value=0.0, step=1.0)
+    # ✅ Keep these INSIDE input page so they don't show on other pages
+    BEARING_OPTIONS = {
+        "420201 (12 mm bore)": 12,
+        "420202 (15 mm bore)": 15,
+        "420203 (17 mm bore)": 17,
+        "420204 (20 mm bore)": 20,
+        "420205 (25 mm bore)": 25,
+        "420206 (30 mm bore)": 30,
+        "6203 (17 mm bore)": 17,
+        "6204 (20 mm bore)": 20,
+        "6205 (25 mm bore)": 25,
+        "6206 (30 mm bore)": 30,
+        "6304 (20 mm bore)": 20,
+        "6305 (25 mm bore)": 25,
+        "6306 (30 mm bore)": 30,
+    }
 
-    shaft_dia  = st.number_input("SHAFT DIA", value=25.0, min_value=0.0, step=1.0)
-    shaft_len  = st.number_input("SHAFT LENGTH", value=220.0, min_value=0.0, step=1.0)
+    MARKET_SHAFT_SIZES = [12, 15, 17, 20, 25, 30, 35, 40, 45, 50]
 
-    pipe_thk   = st.number_input("PIPE THK", value=3.2, min_value=0.0, step=0.1)
+    # --- QTY + TYPE ---
+    qty_col1, qty_col2 = st.columns([1, 2])
+    with qty_col1:
+        qty = st.number_input("QTY", value=1, min_value=1, step=1, key="qty_input")
+    with qty_col2:
+        qty_type = st.radio(
+            "QTY TYPE",
+            ["SINGLE ROLLER", "SET (1 Frame)"],
+            horizontal=True,
+            key="qty_type_radio",
+        )
 
-    qty        = st.number_input("QTY", value=1, min_value=1, step=1)
-
-    # ✅ QTY TYPE
-    qty_type = st.radio(
-        "QTY TYPE",
-        ["SINGLE ROLLER", "SET (1 Frame)"],
-        horizontal=True
+    roller_qty = int(qty) * 3 if qty_type == "SET (1 Frame)" else int(qty)
+    st.caption(
+        f"Roller Qty Used = {roller_qty}  "
+        f"(QTY={int(qty)} × {'3' if qty_type=='SET (1 Frame)' else '1'})"
     )
 
-    # ✅ If SET: 1 set = 3 rollers
-    roller_qty = int(qty) * 3 if qty_type == "SET (1 Frame)" else int(qty)
-    st.info(f"Roller Qty Used = {roller_qty} (QTY={int(qty)} × {'3' if qty_type=='SET (1 Frame)' else '1'})")
+    st.markdown("---")
 
-    # --- Weight ---
-    pipe_wt  = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1e6
+    # --- PIPE + FACE WIDTH ---
+    c1, c2 = st.columns([1, 1])
+
+    with c1:
+        pipe_dia = st.number_input("PIPE DIA (mm)", value=89.0, min_value=0.0, step=0.1, key="pipe_dia")
+        pipe_thk = st.number_input("PIPE THK (mm)", value=3.2, min_value=0.0, step=0.1, key="pipe_thk")
+
+    with c2:
+        fw_mode = st.radio("FACE WIDTH MODE", ["Manual", "Get Face Width"], horizontal=True, key="fw_mode")
+
+        if fw_mode == "Manual":
+            face_width = st.number_input(
+                "FACE WIDTH (mm)",
+                value=190.0,
+                min_value=0.0,
+                step=1.0,
+                key="face_width_manual",
+            )
+        else:
+            bw_input = st.number_input(
+                "Enter Belt Width (mm)",
+                value=650,
+                min_value=0,
+                step=50,
+                key="bw_input_fw",
+            )
+
+            if bw_input < 800:
+                add_val = 100
+            elif bw_input == 800:
+                add_val = 150
+            elif bw_input == 1000:
+                add_val = 200
+            elif bw_input >= 1500:
+                add_val = 250
+            else:
+                add_val = 150
+
+            face_width = (bw_input + add_val) / 3
+            st.success(f"Calculated Face Width = {round(face_width, 2)} mm")
+
+    # ✅ Save face width safely for any later reference
+    st.session_state["face_width"] = float(face_width)
+
+    st.markdown("---")
+
+    # --- SHAFT (bearing + recommended dia + recommended length) ---
+    sh1, sh2 = st.columns([1, 1])
+
+    with sh1:
+        bearing_choice = st.selectbox(
+            "BEARING STANDARD (Make: SKF/FAG/TATA/NBC etc.)",
+            list(BEARING_OPTIONS.keys()),
+            key="bearing_choice",
+        )
+
+        bore = int(BEARING_OPTIONS[bearing_choice])
+        target = bore + 5
+        rec_shaft_dia = next((s for s in MARKET_SHAFT_SIZES if s >= target), target)
+
+        st.caption(f"Inner Bore = {bore} mm → Recommended Shaft Dia = {rec_shaft_dia} mm")
+
+        shaft_dia = st.number_input(
+            "SHAFT DIA (mm)",
+            value=float(rec_shaft_dia),
+            min_value=0.0,
+            step=1.0,
+            key="shaft_dia",
+        )
+
+    with sh2:
+        fw = float(st.session_state.get("face_width", 190.0))
+        rec_shaft_len = fw + 60.0
+
+        st.caption(f"Recommended Shaft Length = Face Width + 60 = {round(rec_shaft_len, 2)} mm")
+
+        shaft_len = st.number_input(
+            "SHAFT LENGTH (mm)",
+            value=float(rec_shaft_len),
+            min_value=0.0,
+            step=1.0,
+            key="shaft_len",
+        )
+
+    st.markdown("---")
+
+    # --- WEIGHT CALC (✅ must be inside input block so variables exist) ---
+    pipe_wt = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1e6
     shaft_wt = (3.14 / 4) * (shaft_dia / 10) ** 2 * (shaft_len / 10) * 7.85 / 1000
     total_wt = pipe_wt + shaft_wt
+    st.session_state.last_roller_weight = float(total_wt)
 
-    st.session_state.last_roller_weight = total_wt
-
-    # --- Costing ---
+    # --- COSTING ---
     c = st.session_state.constants
     housing_cost = pipe_dia / 2
 
@@ -421,53 +522,70 @@ if st.session_state.stage == "input":
         + c["BEARING_COST_PAIR"]
         + c["SEAL_COST"]
         + c["WELDING_COST"]
-        # keep these keys but ONLY add if you really want them in roller cost:
         + c.get("GUIDE_ROLLER", 0.0)
         + c.get("PIVOT_BEARING", 0.0)
     )
 
     unit_price = unit_cp * c["MARKUP"]
-    total_price = unit_price * roller_qty   # ✅ IMPORTANT FIX (set multiplies by 3)
+    total_price = unit_price * roller_qty
 
+    st.info(
+        f"Roller Weight = {round(total_wt,3)} kg | "
+        f"Unit Price = {round(unit_price,2)} | "
+        f"Total Price = {round(total_price,2)}"
+    )
+
+    # --- SAVE BUTTON ---
     if st.button("Calculate Roller Cost", key="btn_calc_roller_cost"):
-        st.session_state.costings.append({
-            "ROLLER": st.session_state.selected_roller,
-            "WT": round(total_wt, 3),
-
-            "QTY": int(qty),                 # user-entered
-            "QTY TYPE": qty_type,
-            "ROLLER QTY": int(roller_qty),   # ✅ computed
-
-            "UNIT_CP": round(unit_cp, 2),
-            "UNIT_PRICE": round(unit_price, 2),
-            "TOTAL_PRICE": round(total_price, 2),
-        })
+        st.session_state.costings.append(
+            {
+                "ROLLER": st.session_state.selected_roller,
+                "WT": round(total_wt, 3),
+                "QTY": int(qty),
+                "QTY TYPE": qty_type,
+                "ROLLER QTY": int(roller_qty),
+                "UNIT_CP": round(unit_cp, 2),
+                "UNIT_PRICE": round(unit_price, 2),
+                "TOTAL_PRICE": round(total_price, 2),
+            }
+        )
         st.session_state.stage = "compiled"
         st.rerun()
-
-# ================== COMPILED (FULL FIXED BLOCK) ==================
+          # ================== COMPILED ==================
+# ================== COMPILED (ONLY ONE BLOCK) ==================
 if st.session_state.stage == "compiled":
     st.subheader("Roller Costing")
-    st.dataframe(pd.DataFrame(st.session_state.costings), use_container_width=True)
+
+    if not st.session_state.costings:
+        st.warning("No roller costing saved yet. Go back and calculate.")
+    else:
+        st.dataframe(pd.DataFrame(st.session_state.costings), use_container_width=True)
 
     r = st.session_state.selected_roller
 
+    # frame not applicable warning
     if r in ["Carrying Idler Without Frame", "Impact Idler Without Frame"]:
-        st.warning("Frame Not Applicable")
+        st.warning("Frame Not Applicable for this roller type.")
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
 
-    if c1.button("Frame Cost", key="btn_go_frame_cost"):
+    # ✅ Back
+    if c1.button("Back", key="compiled_back_btn"):
+        st.session_state.stage = "input"
+        st.rerun()
+
+    # ✅ Frame Cost (only if applicable)
+    if c2.button("Frame Cost", key="compiled_frame_btn"):
         if r in ["Carrying Idler Without Frame", "Impact Idler Without Frame"]:
-            st.error("No Frame")
+            st.error("No Frame for this roller.")
         else:
             st.session_state.stage = "frame_input"
             st.rerun()
 
-    if c2.button("New Roller", key="btn_new_roller_from_compiled"):
+    # ✅ New Roller (unique key)
+    if c3.button("New Roller", key="compiled_new_btn"):
         st.session_state.stage = "select_roller"
         st.rerun()
-
 
 # ================== FRAME INPUT (FULL FIXED BLOCK) ==================
 # ================== ROLLER WT → FRAME BW MAP ==================
@@ -580,6 +698,7 @@ if st.session_state.stage == "frame_input":
         st.session_state.stage = "compiled"
         st.rerun()
 
+      
 
 # ================== FRAME COMPILED (FULL FIXED BLOCK) ==================
 if st.session_state.stage == "frame_compiled":
