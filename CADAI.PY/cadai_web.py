@@ -597,9 +597,10 @@ if st.session_state.stage == "compiled":
         )
 
         # ✅ Delete button (small + clean)
-        del_col, _ = st.columns([2, 8])
-        with del_col:
-            if st.button("🗑 Delete Selected", key="delete_selected_roller_rows"):
+        tool_col1, tool_col2 = st.columns([9, 1])
+
+with tool_col2:
+    if st.button("🗑", help="Delete selected rows", key="delete_selected_roller_rows"):
                 cleaned = edited[edited["DELETE"] == False].drop(columns=["DELETE"])
                 st.session_state.costings = cleaned.to_dict("records")
                 st.rerun()
