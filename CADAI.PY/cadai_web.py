@@ -585,7 +585,7 @@ if st.session_state.stage == "compiled":
     if not st.session_state.costings:
         st.warning("No roller costing saved yet. Go back and calculate.")
     else:
-        # ✅ Editable table with delete checkbox
+        # --- editable table with delete checkbox ---
         df = pd.DataFrame(st.session_state.costings).copy()
         df.insert(0, "DELETE", False)
 
@@ -596,29 +596,24 @@ if st.session_state.stage == "compiled":
             key="roller_costing_editor",
         )
 
-        # ✅ Delete button (small + clean)
-        tool_col1, tool_col2 = st.columns([9, 1])
-
-with tool_col2:
-    if st.button("🗑", help="Delete selected rows", key="delete_selected_roller_rows"):
-                cleaned = edited[edited["DELETE"] == False].drop(columns=["DELETE"])
-                st.session_state.costings = cleaned.to_dict("records")
-                st.rerun()
+        # --- clean delete icon (right aligned) ---
+        _, tool_col2 = st.columns([9, 1])
+        if st.button("🗑", help="Delete selected rows", key="delete_selected_roller_rows"):
+            cleaned = edited[edited["DELETE"] == False].drop(columns=["DELETE"])
+            st.session_state.costings = cleaned.to_dict("records")
+            st.rerun()
 
     r = st.session_state.selected_roller
 
-    # frame not applicable warning
     if r in ["Carrying Idler Without Frame", "Impact Idler Without Frame"]:
         st.warning("Frame Not Applicable for this roller type.")
 
     c1, c2, c3 = st.columns(3)
 
-    # ✅ Back
     if c1.button("Back", key="compiled_back_btn"):
         st.session_state.stage = "input"
         st.rerun()
 
-    # ✅ Frame Cost (only if applicable)
     if c2.button("Frame Cost", key="compiled_frame_btn"):
         if r in ["Carrying Idler Without Frame", "Impact Idler Without Frame"]:
             st.error("No Frame for this roller.")
@@ -626,7 +621,6 @@ with tool_col2:
             st.session_state.stage = "frame_input"
             st.rerun()
 
-    # ✅ New Roller (unique key)
     if c3.button("New Roller", key="compiled_new_btn"):
         st.session_state.stage = "select_roller"
         st.rerun()
