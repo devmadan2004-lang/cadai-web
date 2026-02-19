@@ -407,9 +407,18 @@ if st.session_state.stage=="input":
         list(BEARING_OPTIONS.keys())
     )
 
-    shaft_dia = BEARING_OPTIONS[bearing_selected]
+    bearing_selected = st.selectbox(
+    "Select Bearing Type",
+    list(BEARING_OPTIONS.keys())
+)
 
-    st.info(f"Auto Shaft Diameter = {shaft_dia} mm (from bearing)")
+shaft_dia = BEARING_OPTIONS[bearing_selected]
+
+st.info(f"Auto Shaft Diameter = {shaft_dia} mm (from bearing)")
+
+shaft_len = st.number_input("SHAFT LENGTH", value=220.0, min_value=0.0)
+pipe_thk = st.number_input("PIPE THK", value=3.2, min_value=0.0)
+qty = st.number_input("QTY", value=1, min_value=1, step=1)
 
     shaft_len = st.number_input("SHAFT LENGTH", value=220.0, min_value=0.0)
     pipe_thk = st.number_input("PIPE THK", value=3.2, min_value=0.0)
