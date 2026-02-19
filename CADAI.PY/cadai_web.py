@@ -585,7 +585,24 @@ if st.session_state.stage == "compiled":
     if not st.session_state.costings:
         st.warning("No roller costing saved yet. Go back and calculate.")
     else:
-        st.dataframe(pd.DataFrame(st.session_state.costings), use_container_width=True)
+        # ✅ Editable table with delete checkbox
+        df = pd.DataFrame(st.session_state.costings).copy()
+        df.insert(0, "DELETE", False)
+
+        edited = st.data_editor(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            key="roller_costing_editor",
+        )
+
+        # ✅ Delete button (small + clean)
+        del_col, _ = st.columns([2, 8])
+        with del_col:
+            if st.button("🗑 Delete Selected", key="delete_selected_roller_rows"):
+                cleaned = edited[edited["DELETE"] == False].drop(columns=["DELETE"])
+                st.session_state.costings = cleaned.to_dict("records")
+                st.rerun()
 
     r = st.session_state.selected_roller
 
@@ -612,7 +629,6 @@ if st.session_state.stage == "compiled":
     if c3.button("New Roller", key="compiled_new_btn"):
         st.session_state.stage = "select_roller"
         st.rerun()
-
 # ================== FRAME INPUT (FULL FIXED BLOCK) ==================
 # ================== ROLLER WT → FRAME BW MAP ==================
 ROLLER_WT_TO_BW = [
