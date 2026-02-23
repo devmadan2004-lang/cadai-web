@@ -529,60 +529,81 @@ if st.session_state.stage == "input":
             key="shaft_len",
         )
 
-    st.markdown("---")
-# ================= WEIGHT + COSTING (SAFE + IMPACT READY) =================
+# ================== SAFE SAVE + WEIGHT + COSTING (IMPACT FIX) ==================
+
+# --- Save widget outputs safely to session (prevents rerun NameError) ---
+st.session_state["pipe_dia"]  = pipe_dia
+st.session_state["pipe_thk"]  = pipe_thk
+st.session_state["shaft_dia"] = shaft_dia
+st.session_state["shaft_len"] = shaft_len
+st.session_state["qty_val"]   = qty
+st.session_state["qty_type"]  = qty_type
+
+def _to_float(val, default: float) -> float:
+    """Streamlit-safe numeric coercion."""
+    try:
+        if val is None:
+            return default
+        return float(val)
+    except Exception:
+        return default
+
+def _to_int(val, default: int) -> int:
+    try:
+        if val is None:
+            return default
+        return int(val)
+    except Exception:
+        return default
 
 # Detect Impact
-is_impact = st.session_state.selected_roller == "Impact Idler Without Frame"
+is_impact = (st.session_state.selected_roller == "Impact Idler Without Frame")
 
-# --- Get safe values from session (prevents NameError) ---
-fw = float(st.session_state.get("face_width", 190.0))
-shaft_d = float(st.session_state.get("shaft_dia", shaft_dia))
-shaft_l = float(st.session_state.get("shaft_len", shaft_len))
+# --- Pull SAFE values (never reference local vars as fallback) ---
+fw      = _to_float(st.session_state.get("face_width"), 190.0)
+p_dia   = _to_float(st.session_state.get("pipe_dia"), 89.0)
+p_thk   = _to_float(st.session_state.get("pipe_thk"), 3.2)
+sh_dia  = _to_float(st.session_state.get("shaft_dia"), 25.0)
+sh_len  = _to_float(st.session_state.get("shaft_len"), fw + 60.0)
 
-# --- Impact: Odd shaft rule ---
+qty_i   = _to_int(st.session_state.get("qty_val"), 1)
+qty_t   = str(st.session_state.get("qty_type", "SINGLE ROLLER")).strip()
+
+# --- Impact: Odd shaft rule (odd -> +3) ---
 if is_impact:
-    shaft_val = int(round(shaft_d))
+    sh_int = int(round(sh_dia))
+    if sh_int % 2 != 0:
+        sh_dia = float(sh_int + 3)
+        st.session_state["shaft_dia"] = sh_dia  # persist adjusted value
 
-    if shaft_val % 2 != 0:
-        shaft_d = shaft_val + 3
-        st.session_state["shaft_dia"] = shaft_d
-
-# --- Weight Calculation ---
-pipe_wt = (3.14 * pipe_dia * fw * pipe_thk * 7.85) / 1e6
-
-shaft_wt = (
-    (3.14 / 4)
-    * (shaft_d / 10) ** 2
-    * (shaft_l / 10)
-    * 7.85
-    / 1000
-)
-
+# --- Weight ---
+pipe_wt = (3.14 * p_dia * fw * p_thk * 7.85) / 1e6
+shaft_wt = (3.14 / 4) * (sh_dia / 10) ** 2 * (sh_len / 10) * 7.85 / 1000
 total_wt = pipe_wt + shaft_wt
 
 st.session_state.last_roller_weight = float(total_wt)
 
-# --- Rubber Rings (Impact Only) ---
+# --- Rubber (Impact only) ---
 rubber_qty = 0
-rubber_cost = 0
-
+rubber_cost = 0.0
 if is_impact:
-    rubber_qty = int(fw / 35)
-    rubber_cost = rubber_qty * 50
+    rubber_qty = int(fw / 35)  # per your formula
+    rubber_cost = float(rubber_qty * 50)
 
-# --- QTY Logic (Impact = x2, Others = x3) ---
-if qty_type == "SET (1 Frame)":
-    if is_impact:
-        roller_qty = int(qty) * 2
-    else:
-        roller_qty = int(qty) * 3
+# --- QTY logic (Impact set = x2, others set = x3) ---
+if qty_t.upper().startswith("SET"):
+    roller_qty = qty_i * (2 if is_impact else 3)
 else:
-    roller_qty = int(qty)
+    roller_qty = qty_i
+
+st.caption(
+    f"Roller Qty Used = {roller_qty}  "
+    f"(QTY={qty_i} × {'2' if (qty_t.upper().startswith('SET') and is_impact) else ('3' if qty_t.upper().startswith('SET') else '1')})"
+)
 
 # --- Costing ---
 c = st.session_state.constants
-housing_cost = pipe_dia / 2
+housing_cost = p_dia / 2
 
 unit_cp = (
     total_wt * c["STEEL_COST"]
@@ -591,46 +612,22 @@ unit_cp = (
     + c["BEARING_COST_PAIR"]
     + c["SEAL_COST"]
     + c["WELDING_COST"]
+    + c.get("LOCKING_RING", 0.0)
 )
 
-unit_price = unit_cp * c["MARKUP"]
+unit_price  = unit_cp * c["MARKUP"]
 total_price = unit_price * roller_qty
 
-# --- Display ---
+# --- Display (UI unchanged, just richer for impact) ---
 if is_impact:
     st.info(
         f"Impact Idler | "
         f"WT = {round(total_wt,3)} kg | "
-        f"Rubber = {rubber_qty} | "
-        f"Unit = {round(unit_price,2)} | "
-        f"Total = {round(total_price,2)}"
-    )
-else:
-    st.info(
-        f"Roller Weight = {round(total_wt,3)} kg | "
+        f"Rubber Rings = {rubber_qty} | "
         f"Unit Price = {round(unit_price,2)} | "
         f"Total Price = {round(total_price,2)}"
     )
-    st.session_state.last_roller_weight = float(total_wt)
-
-    # --- COSTING ---
-    c = st.session_state.constants
-    housing_cost = pipe_dia / 2
-
-    unit_cp = (
-        total_wt * c["STEEL_COST"]
-        + housing_cost
-        + c["BEARING_COST_PAIR"]
-        + c["SEAL_COST"]
-        + c["WELDING_COST"]
-        + c.get("GUIDE_ROLLER", 0.0)
-        + c.get("PIVOT_BEARING", 0.0)
-        + c.get("LOCKING_RING", 0.0)
-    )
-
-    unit_price = unit_cp * c["MARKUP"]
-    total_price = unit_price * roller_qty
-
+else:
     st.info(
         f"Roller Weight = {round(total_wt,3)} kg | "
         f"Unit Price = {round(unit_price,2)} | "
