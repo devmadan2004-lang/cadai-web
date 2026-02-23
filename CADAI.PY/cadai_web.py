@@ -536,8 +536,11 @@ is_impact = st.session_state.selected_roller == "Impact Idler Without Frame"
 
 # --- Impact: Shaft Odd → +3 ---
 if is_impact:
-    if int(shaft_dia) % 2 != 0:
-        shaft_dia += 3
+   if is_impact:
+    shaft_val = int(round(float(shaft_dia)))
+
+    if shaft_val % 2 != 0:
+        shaft_dia = shaft_val + 3 
 
 # --- Weight ---
 pipe_wt = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1e6
