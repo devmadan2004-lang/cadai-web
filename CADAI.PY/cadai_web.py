@@ -543,7 +543,9 @@ if is_impact:
         shaft_dia = shaft_val + 3 
 
 # --- Weight ---
-pipe_wt = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1e6
+fw = float(st.session_state.get("face_width", 190.0))
+
+pipe_wt = (3.14 * pipe_dia * fw * pipe_thk * 7.85) / 1e6
 shaft_wt = (3.14 / 4) * (shaft_dia / 10) ** 2 * (shaft_len / 10) * 7.85 / 1000
 total_wt = pipe_wt + shaft_wt
 
