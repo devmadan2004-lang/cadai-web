@@ -429,10 +429,24 @@ if st.session_state.stage == "input":
     is_impact = (st.session_state.selected_roller == "Impact Idler Without Frame")
 
     # --- QTY + TYPE ---
-    qty_col1, qty_col2 = st.columns([1, 2])
-    with qty_col1:
-        qty = st.number_input("QTY", value=1, min_value=1, step=1, key="qty_input")
-    with qty_col2:
+qty_col1, qty_col2 = st.columns([1, 2])
+
+with qty_col1:
+    qty = st.number_input(
+        "QTY",
+        value=1,
+        min_value=1,
+        step=1,
+        key="qty_input"
+    )
+
+with qty_col2:
+
+    # Flat Return has NO SET option
+    if st.session_state.selected_roller == "Flat Return Roller":
+        qty_type = "SINGLE ROLLER"
+        st.caption("Flat Return Roller has no SET option.")
+    else:
         qty_type = st.radio(
             "QTY TYPE",
             ["SINGLE ROLLER", "SET (1 Frame)"],
@@ -440,7 +454,7 @@ if st.session_state.stage == "input":
             key="qty_type_radio",
         )
 
-    # --- Flat Return: No. of Rollers per QTY ---
+# --- Flat Return: No. of Rollers per QTY ---
 roller_per_set = 1
 
 if st.session_state.selected_roller == "Flat Return Roller":
@@ -451,6 +465,7 @@ if st.session_state.selected_roller == "Flat Return Roller":
         step=1,
         key="flat_return_count"
     )
+
 # ================== FINAL QTY LOGIC ==================
 
 # Flat Return: no SET logic
@@ -464,15 +479,17 @@ else:
     else:
         roller_qty = int(qty)
 
-    st.caption(
-        f"Roller Qty Used = {roller_qty}  "
-        f"(QTY={int(qty)} × {('2' if is_impact else '3') if qty_type=='SET (1 Frame)' else '1'})"
-    )
+# --- Display qty info ---
+st.caption(
+    f"Roller Qty Used = {roller_qty}  "
+    f"(QTY={int(qty)} × "
+    f"{int(roller_per_set) if st.session_state.selected_roller=='Flat Return Roller' else (3 if qty_type=='SET (1 Frame)' else 1)})"
+)
 
-    st.markdown("---")
+st.markdown("---")
 
-    # --- PIPE + FACE WIDTH ---
-    c1, c2 = st.columns([1, 1])
+# --- PIPE + FACE WIDTH ---
+c1, c2 = st.columns([1, 1])
 
     with c1:
         pipe_dia = st.number_input("PIPE DIA (mm)", value=89.0, min_value=0.0, step=0.1, key="pipe_dia")
