@@ -428,167 +428,151 @@ if st.session_state.stage == "input":
 
     is_impact = (st.session_state.selected_roller == "Impact Idler Without Frame")
 
-# --- QTY + TYPE ---
-qty_col1, qty_col2 = st.columns([1, 2])
+    # --- QTY + TYPE ---
+    qty_col1, qty_col2 = st.columns([1, 2])
 
-with qty_col1:
-    qty = st.number_input(
-        "QTY",
-        value=1,
-        min_value=1,
-        step=1,
-        key="qty_input"
-    )
-
-with qty_col2:
-
-    # Flat Return has NO SET option
-    if st.session_state.selected_roller == "Flat Return Roller":
-        qty_type = "SINGLE ROLLER"
-        st.caption("Flat Return Roller has no SET option.")
-    else:
-        qty_type = st.radio(
-            "QTY TYPE",
-            ["SINGLE ROLLER", "SET (1 Frame)"],
-            horizontal=True,
-            key="qty_type_radio",
+    with qty_col1:
+        qty = st.number_input(
+            "QTY",
+            value=1,
+            min_value=1,
+            step=1,
+            key="qty_input"
         )
 
-# --- Flat Return: No. of Rollers per QTY ---
-roller_per_set = 1
+    with qty_col2:
+        if st.session_state.selected_roller == "Flat Return Roller":
+            qty_type = "SINGLE ROLLER"
+            st.caption("Flat Return Roller has no SET option.")
+        else:
+            qty_type = st.radio(
+                "QTY TYPE",
+                ["SINGLE ROLLER", "SET (1 Frame)"],
+                horizontal=True,
+                key="qty_type_radio",
+            )
 
-if st.session_state.selected_roller == "Flat Return Roller":
-    roller_per_set = st.number_input(
-        "No. of Rollers",
-        value=1,
-        min_value=1,
-        step=1,
-        key="flat_return_count"
-    )
+    # --- Flat Return: No. of Rollers ---
+    roller_per_set = 1
+    if st.session_state.selected_roller == "Flat Return Roller":
+        roller_per_set = st.number_input(
+            "No. of Rollers",
+            value=1,
+            min_value=1,
+            step=1,
+            key="flat_return_count"
+        )
 
-# ================== FINAL QTY LOGIC ==================
-
-# Flat Return: no SET logic
-if st.session_state.selected_roller == "Flat Return Roller":
-    roller_qty = int(qty) * int(roller_per_set)
-
-# All other rollers (including Impact)
-else:
-    if qty_type == "SET (1 Frame)":
-        roller_qty = int(qty) * 3
+    # --- FINAL QTY LOGIC ---
+    if st.session_state.selected_roller == "Flat Return Roller":
+        roller_qty = int(qty) * int(roller_per_set)
     else:
-        roller_qty = int(qty)
+        if qty_type == "SET (1 Frame)":
+            roller_qty = int(qty) * 3
+        else:
+            roller_qty = int(qty)
 
-# --- Display qty info ---
-st.caption(
-    f"Roller Qty Used = {roller_qty}  "
-    f"(QTY={int(qty)} × "
-    f"{int(roller_per_set) if st.session_state.selected_roller=='Flat Return Roller' else (3 if qty_type=='SET (1 Frame)' else 1)})"
-)
-
-st.markdown("---")
-
-# --- PIPE + FACE WIDTH ---
-c1, c2 = st.columns([1, 1])
-
-with c1:
-    pipe_dia = st.number_input(
-        "PIPE DIA (mm)",
-        value=89.0,
-        min_value=0.0,
-        step=0.1,
-        key="pipe_dia"
+    st.caption(
+        f"Roller Qty Used = {roller_qty} "
+        f"(QTY={qty} × "
+        f"{roller_per_set if st.session_state.selected_roller=='Flat Return Roller' else (3 if qty_type=='SET (1 Frame)' else 1)})"
     )
 
-    pipe_thk = st.number_input(
-        "PIPE THK (mm)",
-        value=3.2,
-        min_value=0.0,
-        step=0.1,
-        key="pipe_thk"
-    )
+    st.markdown("---")
 
-with c2:
-    fw_mode = st.radio(
-        "FACE WIDTH MODE",
-        ["Manual", "Get Face Width"],
-        horizontal=True,
-        key="fw_mode"
-    )
+    # --- PIPE + FACE WIDTH ---
+    c1, c2 = st.columns([1, 1])
 
-    if fw_mode == "Manual":
-        face_width = st.number_input(
-            "FACE WIDTH (mm)",
-            value=190.0,
+    with c1:
+        pipe_dia = st.number_input(
+            "PIPE DIA (mm)",
+            value=89.0,
+            min_value=0.0,
+            step=0.1,
+            key="pipe_dia"
+        )
+        pipe_thk = st.number_input(
+            "PIPE THK (mm)",
+            value=3.2,
+            min_value=0.0,
+            step=0.1,
+            key="pipe_thk"
+        )
+
+    with c2:
+        fw_mode = st.radio(
+            "FACE WIDTH MODE",
+            ["Manual", "Get Face Width"],
+            horizontal=True,
+            key="fw_mode"
+        )
+
+        if fw_mode == "Manual":
+            face_width = st.number_input(
+                "FACE WIDTH (mm)",
+                value=190.0,
+                min_value=0.0,
+                step=1.0,
+                key="face_width_manual",
+            )
+        else:
+            bw_input = st.number_input(
+                "Enter Belt Width (mm)",
+                value=650,
+                min_value=0,
+                step=50,
+                key="bw_input_fw",
+            )
+
+            if bw_input < 800:
+                add_val = 100
+            elif bw_input == 800:
+                add_val = 150
+            elif bw_input == 1000:
+                add_val = 200
+            elif bw_input >= 1500:
+                add_val = 250
+            else:
+                add_val = 150
+
+            face_width = (bw_input + add_val) / 3
+            st.success(f"Calculated Face Width = {round(face_width, 2)} mm")
+
+    st.session_state["face_width"] = float(face_width)
+
+    st.markdown("---")
+
+    # --- SHAFT ---
+    sh1, sh2 = st.columns([1, 1])
+
+    with sh1:
+        bearing_choice = st.selectbox(
+            "BEARING STANDARD",
+            list(BEARING_OPTIONS.keys()),
+            key="bearing_choice",
+        )
+
+        bore = int(BEARING_OPTIONS[bearing_choice])
+        target = bore + 5
+        rec_shaft_dia = next((s for s in MARKET_SHAFT_SIZES if s >= target), target)
+
+        shaft_dia = st.number_input(
+            "SHAFT DIA (mm)",
+            value=float(rec_shaft_dia),
             min_value=0.0,
             step=1.0,
-            key="face_width_manual",
-        )
-    else:
-        bw_input = st.number_input(
-            "Enter Belt Width (mm)",
-            value=650,
-            min_value=0,
-            step=50,
-            key="bw_input_fw",
+            key="shaft_dia",
         )
 
-        if bw_input < 800:
-            add_val = 100
-        elif bw_input == 800:
-            add_val = 150
-        elif bw_input == 1000:
-            add_val = 200
-        elif bw_input >= 1500:
-            add_val = 250
-        else:
-            add_val = 150
-
-        face_width = (bw_input + add_val) / 3
-        st.success(f"Calculated Face Width = {round(face_width, 2)} mm")
-
-# ✅ Keep (your code uses this later)
-st.session_state["face_width"] = float(face_width)
-
-st.markdown("---")
-
-# --- SHAFT (bearing + recommended dia + recommended length) ---
-sh1, sh2 = st.columns([1, 1])
-
-with sh1:
-    bearing_choice = st.selectbox(
-        "BEARING STANDARD (Make: SKF/FAG/TATA/NBC etc.)",
-        list(BEARING_OPTIONS.keys()),
-        key="bearing_choice",
-    )
-
-    bore = int(BEARING_OPTIONS[bearing_choice])
-    target = bore + 5
-    rec_shaft_dia = next((s for s in MARKET_SHAFT_SIZES if s >= target), target)
-
-    st.caption(f"Inner Bore = {bore} mm → Recommended Shaft Dia = {rec_shaft_dia} mm")
-
-    shaft_dia = st.number_input(
-        "SHAFT DIA (mm)",
-        value=float(rec_shaft_dia),
-        min_value=0.0,
-        step=1.0,
-        key="shaft_dia",
-    )
-
-with sh2:
-    fw = float(st.session_state.get("face_width", 190.0))
-    rec_shaft_len = fw + 60.0
-
-    st.caption(f"Recommended Shaft Length = Face Width + 60 = {round(rec_shaft_len, 2)} mm")
-
-    shaft_len = st.number_input(
-        "SHAFT LENGTH (mm)",
-        value=float(rec_shaft_len),
-        min_value=0.0,
-        step=1.0,
-        key="shaft_len",
-    )
+    with sh2:
+        fw = st.session_state["face_width"]
+        shaft_len = st.number_input(
+            "SHAFT LENGTH (mm)",
+            value=float(fw + 60),
+            min_value=0.0,
+            step=1.0,
+            key="shaft_len",
+        )
 
 st.markdown("---")
     # ================== IMPACT RULES (ONLY LOGIC, NO UI CHANGE) ==================
