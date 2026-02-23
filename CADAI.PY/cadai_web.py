@@ -611,7 +611,6 @@ else:
         f"Unit Price = {round(unit_price,2)} | "
         f"Total Price = {round(total_price,2)}"
     )
-    )
     st.session_state.last_roller_weight = float(total_wt)
 
     # --- COSTING ---
