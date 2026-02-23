@@ -530,33 +530,45 @@ if st.session_state.stage == "input":
         )
 
     st.markdown("---")
-# --- WEIGHT + COST CALC (AUTO HANDLE IMPACT) ---
+# ================= WEIGHT + COSTING (SAFE + IMPACT READY) =================
 
+# Detect Impact
 is_impact = st.session_state.selected_roller == "Impact Idler Without Frame"
 
-# --- Impact: Shaft Odd → +3 ---
+# --- Get safe values from session (prevents NameError) ---
+fw = float(st.session_state.get("face_width", 190.0))
+shaft_d = float(st.session_state.get("shaft_dia", shaft_dia))
+shaft_l = float(st.session_state.get("shaft_len", shaft_len))
+
+# --- Impact: Odd shaft rule ---
 if is_impact:
-   if is_impact:
-    shaft_val = int(round(float(shaft_dia)))
+    shaft_val = int(round(shaft_d))
 
     if shaft_val % 2 != 0:
-        shaft_dia = shaft_val + 3 
+        shaft_d = shaft_val + 3
+        st.session_state["shaft_dia"] = shaft_d
 
-# --- Weight ---
-fw = float(st.session_state.get("face_width", 190.0))
-
+# --- Weight Calculation ---
 pipe_wt = (3.14 * pipe_dia * fw * pipe_thk * 7.85) / 1e6
-shaft_wt = (3.14 / 4) * (shaft_dia / 10) ** 2 * (shaft_len / 10) * 7.85 / 1000
+
+shaft_wt = (
+    (3.14 / 4)
+    * (shaft_d / 10) ** 2
+    * (shaft_l / 10)
+    * 7.85
+    / 1000
+)
+
 total_wt = pipe_wt + shaft_wt
 
 st.session_state.last_roller_weight = float(total_wt)
 
-# --- Rubber Ring (Impact Only) ---
+# --- Rubber Rings (Impact Only) ---
 rubber_qty = 0
 rubber_cost = 0
 
 if is_impact:
-    rubber_qty = int(face_width / 35)
+    rubber_qty = int(fw / 35)
     rubber_cost = rubber_qty * 50
 
 # --- QTY Logic (Impact = x2, Others = x3) ---
@@ -568,7 +580,7 @@ if qty_type == "SET (1 Frame)":
 else:
     roller_qty = int(qty)
 
-# --- COSTING ---
+# --- Costing ---
 c = st.session_state.constants
 housing_cost = pipe_dia / 2
 
@@ -584,12 +596,12 @@ unit_cp = (
 unit_price = unit_cp * c["MARKUP"]
 total_price = unit_price * roller_qty
 
-# --- DISPLAY ---
+# --- Display ---
 if is_impact:
     st.info(
         f"Impact Idler | "
         f"WT = {round(total_wt,3)} kg | "
-        f"Rubber = {rubber_qty} pcs | "
+        f"Rubber = {rubber_qty} | "
         f"Unit = {round(unit_price,2)} | "
         f"Total = {round(total_price,2)}"
     )
@@ -598,6 +610,7 @@ else:
         f"Roller Weight = {round(total_wt,3)} kg | "
         f"Unit Price = {round(unit_price,2)} | "
         f"Total Price = {round(total_price,2)}"
+    )
     )
     st.session_state.last_roller_weight = float(total_wt)
 
