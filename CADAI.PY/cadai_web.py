@@ -530,11 +530,70 @@ if st.session_state.stage == "input":
         )
 
     st.markdown("---")
+# --- WEIGHT + COST CALC (AUTO HANDLE IMPACT) ---
 
-    # --- WEIGHT CALC (✅ must be inside input block so variables exist) ---
-    pipe_wt = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1e6
-    shaft_wt = (3.14 / 4) * (shaft_dia / 10) ** 2 * (shaft_len / 10) * 7.85 / 1000
-    total_wt = pipe_wt + shaft_wt
+is_impact = st.session_state.selected_roller == "Impact Idler Without Frame"
+
+# --- Impact: Shaft Odd → +3 ---
+if is_impact:
+    if int(shaft_dia) % 2 != 0:
+        shaft_dia += 3
+
+# --- Weight ---
+pipe_wt = (3.14 * pipe_dia * face_width * pipe_thk * 7.85) / 1e6
+shaft_wt = (3.14 / 4) * (shaft_dia / 10) ** 2 * (shaft_len / 10) * 7.85 / 1000
+total_wt = pipe_wt + shaft_wt
+
+st.session_state.last_roller_weight = float(total_wt)
+
+# --- Rubber Ring (Impact Only) ---
+rubber_qty = 0
+rubber_cost = 0
+
+if is_impact:
+    rubber_qty = int(face_width / 35)
+    rubber_cost = rubber_qty * 50
+
+# --- QTY Logic (Impact = x2, Others = x3) ---
+if qty_type == "SET (1 Frame)":
+    if is_impact:
+        roller_qty = int(qty) * 2
+    else:
+        roller_qty = int(qty) * 3
+else:
+    roller_qty = int(qty)
+
+# --- COSTING ---
+c = st.session_state.constants
+housing_cost = pipe_dia / 2
+
+unit_cp = (
+    total_wt * c["STEEL_COST"]
+    + housing_cost
+    + rubber_cost
+    + c["BEARING_COST_PAIR"]
+    + c["SEAL_COST"]
+    + c["WELDING_COST"]
+)
+
+unit_price = unit_cp * c["MARKUP"]
+total_price = unit_price * roller_qty
+
+# --- DISPLAY ---
+if is_impact:
+    st.info(
+        f"Impact Idler | "
+        f"WT = {round(total_wt,3)} kg | "
+        f"Rubber = {rubber_qty} pcs | "
+        f"Unit = {round(unit_price,2)} | "
+        f"Total = {round(total_price,2)}"
+    )
+else:
+    st.info(
+        f"Roller Weight = {round(total_wt,3)} kg | "
+        f"Unit Price = {round(unit_price,2)} | "
+        f"Total Price = {round(total_price,2)}"
+    )
     st.session_state.last_roller_weight = float(total_wt)
 
     # --- COSTING ---
