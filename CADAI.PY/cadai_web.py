@@ -592,8 +592,8 @@ with sh2:
 
 st.markdown("---")
     # ================== IMPACT RULES (ONLY LOGIC, NO UI CHANGE) ==================
-    shaft_dia_eff = float(shaft_dia)
-    if is_impact:
+shaft_dia_eff = float(shaft_dia)          # ✅ aligned
+if is_impact:
         # IF X IS ODD THEN ADD 3 (X+3)
         sd_int = int(round(shaft_dia_eff))
         if sd_int % 2 != 0:
