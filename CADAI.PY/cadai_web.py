@@ -428,7 +428,7 @@ if st.session_state.stage == "input":
 
     is_impact = (st.session_state.selected_roller == "Impact Idler Without Frame")
 
-    # --- QTY + TYPE ---
+# --- QTY + TYPE ---
 qty_col1, qty_col2 = st.columns([1, 2])
 
 with qty_col1:
@@ -491,89 +491,106 @@ st.markdown("---")
 # --- PIPE + FACE WIDTH ---
 c1, c2 = st.columns([1, 1])
 
-    with c1:
-        pipe_dia = st.number_input("PIPE DIA (mm)", value=89.0, min_value=0.0, step=0.1, key="pipe_dia")
-        pipe_thk = st.number_input("PIPE THK (mm)", value=3.2, min_value=0.0, step=0.1, key="pipe_thk")
+with c1:
+    pipe_dia = st.number_input(
+        "PIPE DIA (mm)",
+        value=89.0,
+        min_value=0.0,
+        step=0.1,
+        key="pipe_dia"
+    )
 
-    with c2:
-        fw_mode = st.radio("FACE WIDTH MODE", ["Manual", "Get Face Width"], horizontal=True, key="fw_mode")
+    pipe_thk = st.number_input(
+        "PIPE THK (mm)",
+        value=3.2,
+        min_value=0.0,
+        step=0.1,
+        key="pipe_thk"
+    )
 
-        if fw_mode == "Manual":
-            face_width = st.number_input(
-                "FACE WIDTH (mm)",
-                value=190.0,
-                min_value=0.0,
-                step=1.0,
-                key="face_width_manual",
-            )
+with c2:
+    fw_mode = st.radio(
+        "FACE WIDTH MODE",
+        ["Manual", "Get Face Width"],
+        horizontal=True,
+        key="fw_mode"
+    )
+
+    if fw_mode == "Manual":
+        face_width = st.number_input(
+            "FACE WIDTH (mm)",
+            value=190.0,
+            min_value=0.0,
+            step=1.0,
+            key="face_width_manual",
+        )
+    else:
+        bw_input = st.number_input(
+            "Enter Belt Width (mm)",
+            value=650,
+            min_value=0,
+            step=50,
+            key="bw_input_fw",
+        )
+
+        if bw_input < 800:
+            add_val = 100
+        elif bw_input == 800:
+            add_val = 150
+        elif bw_input == 1000:
+            add_val = 200
+        elif bw_input >= 1500:
+            add_val = 250
         else:
-            bw_input = st.number_input(
-                "Enter Belt Width (mm)",
-                value=650,
-                min_value=0,
-                step=50,
-                key="bw_input_fw",
-            )
+            add_val = 150
 
-            if bw_input < 800:
-                add_val = 100
-            elif bw_input == 800:
-                add_val = 150
-            elif bw_input == 1000:
-                add_val = 200
-            elif bw_input >= 1500:
-                add_val = 250
-            else:
-                add_val = 150
+        face_width = (bw_input + add_val) / 3
+        st.success(f"Calculated Face Width = {round(face_width, 2)} mm")
 
-            face_width = (bw_input + add_val) / 3
-            st.success(f"Calculated Face Width = {round(face_width, 2)} mm")
+# ✅ Keep (your code uses this later)
+st.session_state["face_width"] = float(face_width)
 
-    # ✅ Keep (your code uses this later)
-    st.session_state["face_width"] = float(face_width)
+st.markdown("---")
 
-    st.markdown("---")
+# --- SHAFT (bearing + recommended dia + recommended length) ---
+sh1, sh2 = st.columns([1, 1])
 
-    # --- SHAFT (bearing + recommended dia + recommended length) ---
-    sh1, sh2 = st.columns([1, 1])
+with sh1:
+    bearing_choice = st.selectbox(
+        "BEARING STANDARD (Make: SKF/FAG/TATA/NBC etc.)",
+        list(BEARING_OPTIONS.keys()),
+        key="bearing_choice",
+    )
 
-    with sh1:
-        bearing_choice = st.selectbox(
-            "BEARING STANDARD (Make: SKF/FAG/TATA/NBC etc.)",
-            list(BEARING_OPTIONS.keys()),
-            key="bearing_choice",
-        )
+    bore = int(BEARING_OPTIONS[bearing_choice])
+    target = bore + 5
+    rec_shaft_dia = next((s for s in MARKET_SHAFT_SIZES if s >= target), target)
 
-        bore = int(BEARING_OPTIONS[bearing_choice])
-        target = bore + 5
-        rec_shaft_dia = next((s for s in MARKET_SHAFT_SIZES if s >= target), target)
+    st.caption(f"Inner Bore = {bore} mm → Recommended Shaft Dia = {rec_shaft_dia} mm")
 
-        st.caption(f"Inner Bore = {bore} mm → Recommended Shaft Dia = {rec_shaft_dia} mm")
+    shaft_dia = st.number_input(
+        "SHAFT DIA (mm)",
+        value=float(rec_shaft_dia),
+        min_value=0.0,
+        step=1.0,
+        key="shaft_dia",
+    )
 
-        shaft_dia = st.number_input(
-            "SHAFT DIA (mm)",
-            value=float(rec_shaft_dia),
-            min_value=0.0,
-            step=1.0,
-            key="shaft_dia",
-        )
+with sh2:
+    fw = float(st.session_state.get("face_width", 190.0))
+    rec_shaft_len = fw + 60.0
 
-    with sh2:
-        fw = float(st.session_state.get("face_width", 190.0))
-        rec_shaft_len = fw + 60.0
+    st.caption(f"Recommended Shaft Length = Face Width + 60 = {round(rec_shaft_len, 2)} mm")
 
-        st.caption(f"Recommended Shaft Length = Face Width + 60 = {round(rec_shaft_len, 2)} mm")
+    shaft_len = st.number_input(
+        "SHAFT LENGTH (mm)",
+        value=float(rec_shaft_len),
+        min_value=0.0,
+        step=1.0,
+        key="shaft_len",
+    )
 
-        shaft_len = st.number_input(
-            "SHAFT LENGTH (mm)",
-            value=float(rec_shaft_len),
-            min_value=0.0,
-            step=1.0,
-            key="shaft_len",
-        )
-
-    st.markdown("---")
-
+st.markdown("---")
     # ================== IMPACT RULES (ONLY LOGIC, NO UI CHANGE) ==================
     shaft_dia_eff = float(shaft_dia)
     if is_impact:
