@@ -343,13 +343,14 @@ with left:
 if st.session_state.stage=="select_roller":
 
     main = st.selectbox("Roller Type",[
-        "Select Roller",
-        "Carrying Idler Without Frame",
-        "Impact Idler Without Frame",
-        "Carrying Idler With Frame",
-        "SARI",
-        "SACI"
-    ])
+    "Select Roller",
+    "Carrying Idler Without Frame",
+    "Impact Idler Without Frame",
+    "Carrying Idler With Frame",
+    "Flat Return Roller",   # ✅ NEW
+    "SARI",
+    "SACI"
+])
 
     roller = main
 
@@ -439,9 +440,27 @@ if st.session_state.stage == "input":
             key="qty_type_radio",
         )
 
-    # ✅ FIX: Impact SET = qty * 2, others SET = qty * 3
+    # --- Flat Return: No. of Rollers per QTY ---
+roller_per_set = 1
+
+if st.session_state.selected_roller == "Flat Return Roller":
+    roller_per_set = st.number_input(
+        "No. of Rollers",
+        value=1,
+        min_value=1,
+        step=1,
+        key="flat_return_count"
+    )
+# ================== FINAL QTY LOGIC ==================
+
+# Flat Return: no SET logic
+if st.session_state.selected_roller == "Flat Return Roller":
+    roller_qty = int(qty) * int(roller_per_set)
+
+# All other rollers (including Impact)
+else:
     if qty_type == "SET (1 Frame)":
-        roller_qty = int(qty) * (2 if is_impact else 3)
+        roller_qty = int(qty) * 3
     else:
         roller_qty = int(qty)
 
@@ -564,22 +583,36 @@ if st.session_state.stage == "input":
     c = st.session_state.constants
     housing_cost = pipe_dia / 2
 
+    # --- Flat Return Bracket Logic ---
+bracket_cost = 0
+bracket_weight = 0
+
+if st.session_state.selected_roller == "Flat Return Roller":
+    bracket_weight = 1.5 * 2  # 2 brackets per roller
+    bracket_cost = bracket_weight * c["STEEL_COST"]
+
     unit_cp = (
-        total_wt * c["STEEL_COST"]
-        + housing_cost
-        + rubber_cost                      # ✅ Impact only adds cost, others 0
-        + c["BEARING_COST_PAIR"]
-        + c["SEAL_COST"]
-        + c["WELDING_COST"]
-        + c.get("GUIDE_ROLLER", 0.0)
-        + c.get("PIVOT_BEARING", 0.0)
-        + c.get("LOCKING_RING", 0.0)
-    )
+    total_wt * c["STEEL_COST"]
+    + housing_cost
+    + rubber_cost
+    + bracket_cost   # ✅ added
+    + c["BEARING_COST_PAIR"]
+    + c["SEAL_COST"]
+    + c["WELDING_COST"]
+    + c.get("GUIDE_ROLLER", 0.0)
+    + c.get("PIVOT_BEARING", 0.0)
+    + c.get("LOCKING_RING", 0.0)
+)
 
     unit_price  = unit_cp * c["MARKUP"]
     total_price = unit_price * roller_qty
 
     # --- DISPLAY ---
+    if st.session_state.selected_roller == "Flat Return Roller":
+    st.caption(
+        f"Bracket Weight = {bracket_weight} kg | "
+        f"Bracket Cost = {round(bracket_cost,2)}"
+    )
     if is_impact:
         st.info(
             f"Roller Weight = {round(total_wt,3)} kg | "
@@ -644,7 +677,11 @@ if st.session_state.stage == "compiled":
 
     r = st.session_state.selected_roller
 
-    if r in ["Carrying Idler Without Frame", "Impact Idler Without Frame"]:
+   if r in [
+    "Carrying Idler Without Frame",
+    "Impact Idler Without Frame",
+    "Flat Return Roller"
+]:
         st.warning("Frame Not Applicable for this roller type.")
 
     c1, c2, c3 = st.columns(3)
